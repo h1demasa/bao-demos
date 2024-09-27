@@ -1,5 +1,5 @@
 freertos_src:=$(wrkdir_src)/freertos
-freertos_repo:=https://github.com/bao-project/freertos-over-bao.git
+freertos_repo:=https://github.com/h1demasa/freertos-over-bao.git
 freertos_branch:=demo
 
 $(freertos_src):

@@ -67,12 +67,6 @@
 		compatible = "arm,pl011", "arm,primecell";
 	};
 
-    ethernet@1a000000 { 
-        compatible = "smsc,lan91c111";
-        reg = <0x0 0x01a000000 0x0 0x10000>;
-        interrupts = <0x0 15 0x4>;
-    };
-
 	apb-pclk {
 		phandle = <0x8000>;
 		clock-output-names = "clk24mhz";

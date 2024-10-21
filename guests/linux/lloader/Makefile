@@ -7,18 +7,8 @@ endif
 endif
 
 ARCH=aarch64
-ifeq ($(ARCH), aarch64)
 CROSS_COMPILE?=aarch64-none-elf-
 OPTIONS=-mcmodel=large 
-else ifeq ($(ARCH), aarch32)
-CROSS_COMPILE?=arm-none-eabi-
-OPTIONS=-march=armv7-a
-else ifeq ($(ARCH), riscv64)
-CROSS_COMPILE?=riscv64-unknown-elf-
-OPTIONS=-mcmodel=medany
-else
-$(error unkown architecture $(ARCH))
-endif
 
 all: $(TARGET).bin
 

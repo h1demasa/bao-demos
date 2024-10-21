@@ -1,9 +1,13 @@
 SHELL:=bash
+PLATFORM:=fvp-a
+DEMO=linux+linux
+
 
 bao_demos:=$(abspath .)
 platform_dir:=$(bao_demos)/platforms/$(PLATFORM)
 demo_dir:=$(bao_demos)/demos/$(DEMO)
 SHELL:=/bin/bash
+
 
 ifeq ($(filter clean distclean, $(MAKECMDGOALS)),)
 ifndef CROSS_COMPILE
@@ -13,18 +17,10 @@ endif
 
 ifeq ($(filter distclean, $(MAKECMDGOALS)),)
 
-ifndef PLATFORM
- $(error No target PLATFORM defined)
-endif
-
 ifeq ($(wildcard $(platform_dir)),)
  $(error Target platform $(PLATFORM) is not supported)
 endif
 
-ifndef DEMO
- $(error No target DEMO defined.)
-endif
-    
 ifeq ($(wildcard $(demo_dir)),)
  $(error Target demo $(DEMO) is not supported)
 endif
@@ -66,12 +62,10 @@ environment+=BAO_DEMOS_WRKDIR=$(wrkdir)
 environment+=BAO_DEMOS_WRKDIR_SRC=$(wrkdir_src)
 environment+=BAO_DEMOS_WRKDIR_PLAT=$(wrkdir_plat_imgs)
 environment+=BAO_DEMOS_WRKDIR_IMGS=$(wrkdir_demo_imgs)
-environment+=BAO_DEMOS_SDCARD_DEV=/dev/yoursdcarddev
-environment+=BAO_DEMOS_SDCARD=/media/$$USER/boot
 
 all: platform 
 
-bao_repo:=https://github.com/bao-project/bao-hypervisor
+bao_repo:=https://github.com/h1demasa/bao-hypervisor
 bao_version:=demo
 bao_src:=$(wrkdir_src)/bao
 bao_cfg_repo:=$(wrkdir_demo_imgs)/config

@@ -22,13 +22,6 @@
 			enable-method = "psci";
 			reg = <0x1>;
 		};
-
-		cpu@2 {
-			compatible = "arm,cortex-a53", "arm,armv8";
-			device_type = "cpu";
-            enable-method = "psci";
-			reg = <0x2>;
-		};
 	};
 
 	psci {
@@ -75,17 +68,9 @@
 		compatible = "fixed-clock";
 	};
 
-    bao-ipc@f0000000 {
-        compatible = "bao,ipcshmem";
-        reg = <0x0 0xf0000000 0x0 0x00010000>;
-		read-channel = <0x0 0x2000>;
-		write-channel = <0x2000 0x2000>;
-        interrupts = <0 52 1>;
-		id = <0>;
-    };
 
 	chosen {
-        bootargs = "earlycon console=ttyAMA0,115200n8 ip=192.168.42.15 carrier_timeout=0";
+        bootargs = "earlycon console=ttyAMA0,115200n8 carrier_timeout=0";
 	    stdout-path = "/pl011@1c090000";
 	};
 };

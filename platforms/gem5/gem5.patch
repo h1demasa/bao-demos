@@ -1,0 +1,24 @@
+diff --git a/src/arch/arm/isa_device.cc b/src/arch/arm/isa_device.cc
+index 8a340e8b5a..8de70ece3f 100644
+--- a/src/arch/arm/isa_device.cc
++++ b/src/arch/arm/isa_device.cc
+@@ -62,15 +62,15 @@ BaseISADevice::setISA(ISA *_isa)
+ void
+ DummyISADevice::setMiscReg(int misc_reg, RegVal val)
+ {
+-    warn("Ignoring write of 0x%lx to miscreg %s\n",
+-          val,
+-          miscRegName[misc_reg]);
++//    warn("Ignoring write of 0x%lx to miscreg %s\n",
++//          val,
++//          miscRegName[misc_reg]);
+ }
+ 
+ RegVal
+ DummyISADevice::readMiscReg(int misc_reg)
+ {
+-    warn("Returning zero for read from miscreg %s\n", miscRegName[misc_reg]);
++//    warn("Returning zero for read from miscreg %s\n", miscRegName[misc_reg]);
+ 
+     return 0;
+ }

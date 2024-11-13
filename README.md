@@ -1,39 +1,24 @@
-# Bao Hypervisor Demo Guide
+# Bao Hypervisor Demo Guide on gem5
 
 This tutorial provides a step-by-step guide on how to run different demo 
 configurations of the Bao hypervisor featuring multiple guest operating 
-systems and targeting several supported platforms. The available demos are:
+systems on gem5.
 
-* [Single-guest Baremetal](demos/baremetal/README.md)
-* [Dual-guest Linux+FreeRTOS](demos/linux+freertos/README.md)
-* [Dual-Guest Linux+Zephyr](demos/linux+zephyr/README.md)
-* [Dual-Guest Zephyr+Baremetal](demos/zephyr+baremetal/README.md)
-
+You can see the automation build guide on [gem5 blog](http://www.gem5.org/2024/11/12/bao-on-gem5.html).
 
 ---
 
 **NOTE**
 
 This tutorial assumes you are running a standard Linux distro (e.g. 
-Debian) and using bash.
-
-If you have any doubts, questions, feedback, or suggestions regarding 
-this guide, please raise an issue in GitHub or contact us via 
-info@bao-project.org.
-
-If you run into any problem while following this guide, we ask you to raise 
-an issue on Github, but first please make sure you are using the same or
-newer/compatible versions of the tools and software listed in 
-[Appendix III](#Appendix-III) (not all are needed for all target platforms). 
-
----
+Ubuntu) and using bash.
 
 ## -1. Install dependencies
 
 ```
 sudo apt install build-essential bison flex git libssl-dev ninja-build \
     u-boot-tools pandoc libslirp-dev pkg-config libglib2.0-dev libpixman-1-dev \
-    gettext-base curl xterm cmake python3-pip xilinx-bootgen
+    gettext-base curl xterm cmake python3-pip xilinx-bootgen device-tree-compiler
 
 pip3 install pykwalify packaging pyelftools
 ```
@@ -43,17 +28,9 @@ pip3 install pykwalify packaging pyelftools
 Download the latest bare-metal cross-compile toolchain for your target 
 architecture:
 
-a) For Armv8 Aarch64, use the **aarch64-none-elf-** toolchain.
+For Armv8 Aarch64, use the **aarch64-none-elf-** toolchain.
 
 Download it from the [Arm Developer's][arm-toolchains]  website.
-
-b) For Armv7 or Armv8 Aarch32, use the **arm-none-eabi-** toolchain.
-
-Download it from the [Arm Developer's][arm-toolchains]  website.
-
-c) For RISC-V, use the **riscv64-unknown-elf-** toolchain.
-
-Download it from [SiFive's Freedom Tools][riscv-toolchains] github reposiroty.
 
 Install the toolchain. Then, set the **CROSS_COMPILE** environment variable 
 with the reference toolchain prefix path:
@@ -62,231 +39,448 @@ with the reference toolchain prefix path:
 export CROSS_COMPILE=/path/to/toolchain/install/dir/bin/your-toolchain-prefix-
 ```
 
-## 1. Setup base environment
-
-Clone this repo and cd to it:
-
-```
-git clone https://github.com/bao-project/bao-demos
-cd bao-demos
-```
-
-Depending on your target platform and demo, setup the **PLATFORM** and **DEMO**
-environment variables using the IDs in [Appendix I](#Appendix-I). For example,
-for a system configuration targeting the ZCU102 board and featuring a
-dual-guest Linux+FreeRTOS demo:
-
-```
-export PLATFORM=zcu102
-export DEMO=linux+freertos
-```
-
-Note that not every platform supports every demo. The supported platform/demo
-combinations are available in [Appendix II](#Appendix-II).
-
-At this point you have two options:
-
-## A) Use automated make
-
-Just execute:
-
-```
-make -j$(nproc)
-```
-
-And all the needed source and images will be automatically downloaded and built. 
-The makefiles will also print some instructions for you to carry out when it is 
-not possible to automate a given step for some reason (e.g. download behind 
-authentication wall). It will also print the instructions on how to deploy the
-images on your target platform. To quiet instructions pass `NO_INSTRUCTIONS=1` 
-to make.
-
----
-
-**WARNING**
-
-The makefiles will automatically accept end-user license agreements (EULAs) on 
-your behalf for some of the downloaded firmware. If you wish to be prompted 
-to accept them manually, pass `ALWAYS_ASK=1` to make.
-
----
-
-If you are targetting an emulator platform like QEMU, after building 
-you can start it with:
-
-```
-make run
-```
-
-In this case, if you don't have qemu for the target architecture installed, 
-it will build it for you.
-
----
-
-**NOTE**
-
-These makefiles are intended **ONLY to automate** this guide's steps; not to be 
-used as any kind of build system during development.
-
----
-
-## B) Follow the step-by-step guide
-
-As an alternative, we provide a step-by-step guide that you can follow to build 
-all the necessary software and deploy it to your target platform.
-
-### B.1) Setup ARCH manually
-
-Setup the *ARCH* environment variable manually according to 
-[Appendix I](#Appendix-I). For example, for the ZCU102 platform:
-
-```
-export ARCH=aarch64
-```
-
-### B.2) Create working directory
-
-Create the working directories where you'll place the source code and
-final images:
-
-```
-export BAO_DEMOS=$(realpath .)
-export BAO_DEMOS_WRKDIR=$BAO_DEMOS/wrkdir
-export BAO_DEMOS_WRKDIR_SRC=$BAO_DEMOS_WRKDIR/srcs
-export BAO_DEMOS_WRKDIR_BIN=$BAO_DEMOS_WRKDIR/bin
-export BAO_DEMOS_WRKDIR_PLAT=$BAO_DEMOS_WRKDIR/imgs/$PLATFORM
-export BAO_DEMOS_WRKDIR_IMGS=$BAO_DEMOS_WRKDIR_PLAT/$DEMO
-mkdir -p $BAO_DEMOS_WRKDIR
-mkdir -p $BAO_DEMOS_WRKDIR_SRC
-mkdir -p $BAO_DEMOS_WRKDIR_BIN
-mkdir -p $BAO_DEMOS_WRKDIR_IMGS
-```
-
-### B.3) Build guests
-
-Build guests according to the target demo:
-
-* [Single Baremetal Guest](demos/baremetal/README.md)
-* [Dual-guest Linux+FreeRTOS](demos/linux+freertos/README.md)
-* [Dual-Guest Linux+Zephyr](demos/linux+zephyr/README.md)
-* [Dual-Guest Zephyr+Baremetal](demos/zephyr+baremetal/README.md)
-
-
-### B.4) Build Bao
-
-Clone Bao's repo to the the working directory:
-
-```
-export BAO_DEMOS_BAO=$BAO_DEMOS_WRKDIR_SRC/bao
-git clone https://github.com/bao-project/bao-hypervisor $BAO_DEMOS_BAO\
-    --branch demo
-```
-
-Copy your config to the working directory:
-
-```
-mkdir -p $BAO_DEMOS_WRKDIR_IMGS/config
-cp -L $BAO_DEMOS/demos/$DEMO/configs/$PLATFORM.c\
-    $BAO_DEMOS_WRKDIR_IMGS/config/$DEMO.c
-```
-
-Build it:
-
-```
-make -C $BAO_DEMOS_BAO\
-    PLATFORM=$PLATFORM\
-    CONFIG_REPO=$BAO_DEMOS_WRKDIR_IMGS/config\
-    CONFIG=$DEMO\
-    CPPFLAGS=-DBAO_DEMOS_WRKDIR_IMGS=$BAO_DEMOS_WRKDIR_IMGS
-```
-
-And copy the resulting binary into the final image directory:
-
-```
-cp $BAO_DEMOS_BAO/bin/$PLATFORM/$DEMO/bao.bin\
-    $BAO_DEMOS_WRKDIR_IMGS
-```
-
-### B.5) Build Firmware and Deploy
-
-Build the firmware and deploy the system according to the target platform:
-
-#### AArch64 platforms:
-* [Xilinx ZCU102/4](platforms/zcu104/README.md)
-* [NXP i.MX8QM](platforms/imx8qm/README.md)
-* [Nvidia TX2](platforms/tx2/README.md)
-* [Raspberry 4 Model B](platforms/rpi4/README.md)
-* [QEMU virt](platforms/qemu-aarch64-virt/README.md)
-* [FVP-A Aarch64](platforms/fvp-a/README.md)
-* [FVP-R Aarch64](platforms/fvp-r/README.md)
-
-#### AArch32 platforms:
-* [FVP-A Aarch32](platforms/fvp-a-aarch32/README.md)
-* [FVP-R Aarch32](platforms/fvp-r-aarch32/README.md)
-
-#### RISC-V platforms:
-* [QEMU virt](platforms/qemu-riscv64-virt/README.md)
-
----
-
-## Appendix I
-
-|                     | PLATFORM          | ARCH    |
-| ------------------- | ----------------- | ------- |
-| Xilinx ZCU102       | zcu102            | aarch64 |
-| Xilinx ZCU104       | zcu104            | aarch64 |
-| NXP i.MX8QM         | imx8qm            | aarch64 |
-| Nvidia TX2          | tx2               | aarch64 |
-| Raspberry 4 Model B | rpi4              | aarch64 |
-| QEMU Aarch64 virt   | qemu-aarch64-virt | aarch64 |
-| FVP-A AArch64       | fvp-a             | aarch64 |
-| FVP-R AArch64       | fvp-r             | aarch64 |
-| FVP-A AArch32       | fvp-a-aarch32     | aarch32 |
-| FVP-R AArch32       | fvp-r-aarch32     | aarch32 |
-| QEMU RV64 virt      | qemu-riscv64-virt | riscv64 |
-
-|                  | DEMO             |
-| ---------------- | ---------------- |
-| Baremetal guest  | baremetal        |
-| Linux+FreeRTOS   | linux+freertos   |
-| Linux+Zephyr     | linux+zephyr     |
-| Zephyr+Baremetal | zephyr+baremetal |
-
-## Appendix II
-
-|                   | baremetal | linux+freertos | linux+zephyr | zephyr+baremetal |
-| ----------------- | --------- | -------------- | ------------ | ---------------- |
-| zcu102            | x         | x              |              |                  |
-| zcu104            | x         | x              |              |                  |
-| imx8qm            | x         | x              |              |                  |
-| tx2               | x         | x              |              |                  |
-| rpi4              | x         | x              | x            |                  |
-| qemu-aarch64-virt | x         | x              | x            |                  |
-| fvp-a-aarch64     | x         | x              | x            | x                |
-| fvp-a-aarch32     | x         | x              | x            | x                |
-| fvp-r-aarch64     | x         | x              | x            | x                |
-| fvp-r-aarch32     | x         |                |              | x                |
-| qemu-riscv64-virt | x         | x              |              |                  |
-
-
----
-
-## Appendix III
-
-| Tool                    | Version |
-| ----------------------- | ------- |
-| arm-none-eabi-gcc       | 11.3.1  |
-| aarch64-none-elf-gcc    | 11.2.1  |
-| riscv64-unknown-elf-gcc | 10.2.0  |
-| make                    | 4.2.1   |
-| dtc                     | 1.5.0   |
-| gcc                     | 9.3.0   |
-| mkimage                 | 20.10   |
-| cmake                   | 3.20.0  |
-| ninja                   | 1.10.1  |
-
-
 <!-- Links -->
 
 [arm-toolchains]: https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
-[riscv-toolchains]: https://github.com/sifive/freedom-tools/releases
+
+---
+
+# Step-by-step Build Guide
+
+This guide explains how to build the environment from scratch using the official repositories. It provides detailed information about the required modifications and build steps.
+
+First, create directories to store build outputs:
+
+```bash
+export WORKDIR=$(pwd)
+mkdir -p outputs/config # For build outputs
+mkdir -p resources/binaries resources/semihosting # For using from gem5
+```
+
+## Clone bao-demos
+
+```bash
+git clone https://github.com/bao-project/bao-demos.git
+```
+
+The Bao Hypervisor demo repository contains the configuration files for both the operating system and firmware. By default, it does not include settings for running two Linux instances, so we'll need to create these configurations.
+
+The default configuration in "guests/linux/configs/base.config" has shared memory enabled. While this feature requires a Linux kernel patch to work, we won't be using shared memory in this setup, so we'll disable it.
+
+Additionally, X509 certificate processing causes significant delays when running on gem5 in our environment, consistently failing to complete regardless of the allowed time. Therefore, we'll disable these features by adding the following to the base.config file:
+
+```
+CONFIG_X509_CERTIFICATE_PARSER=n
+CONFIG_SYSTEM_TRUSTED_KEYRING=n
+CONFIG_SYSTEM_TRUSTED_KEYS=""
+CONFIG_SYSTEM_EXTRA_CERTIFICATE=n
+CONFIG_PKCS7_MESSAGE_PARSER=n
+CONFIG_ASYMMETRIC_KEY_TYPE=n
+CONFIG_ASYMMETRIC_PUBLIC_KEY_SUBTYPE=n
+CONFIG_X509_CERTIFICATE_PARSER=n
+CONFIG_PKCS7_TEST_KEY=n
+CONFIG_SIGNED_PE_FILE_VERIFICATION=n
+```
+
+The default Linux configuration for Bao Hypervisor includes Ethernet support. However, since the VExpress_GEM5_Foundation platform we're using doesn't support Ethernet, we'll remove it from the Linux Device Tree (DTB).
+
+We also need to modify the memory range to match the allocation defined by the Bao Hypervisor. Save the following Device Tree configurations as "$WORKDIR/outputs/linux1.dts" and "$WORKDIR/outputs/linux2.dts":
+
+```
+/dts-v1/;
+
+/ {
+	#size-cells = <0x2>;
+	#address-cells = <0x2>;
+	interrupt-parent = <&gic>;
+
+	cpus {
+		#size-cells = <0x0>;
+		#address-cells = <0x1>;
+
+		cpu@0 {
+			compatible = "arm,cortex-a53", "arm,armv8";
+			device_type = "cpu";
+			enable-method = "psci";
+			reg = <0x0>;
+		};
+
+		cpu@1 {
+			compatible = "arm,cortex-a53", "arm,armv8";
+			device_type = "cpu";
+			enable-method = "psci";
+			reg = <0x1>;
+		};
+	};
+
+	psci {
+		compatible = "arm,psci-0.2";
+		method = "smc";
+	};
+
+	memory@a0000000 {
+		reg = <0x0 0xa0000000 0x0 0x40000000>;
+		device_type = "memory";
+	};
+
+	gic: intc@2F000000 {
+		interrupts = <0x01 0x09 0x04>;
+		reg = <0x00 0x2F000000 0x00 0x10000 0x00 0x2F100000 0x00 0xf60000>;
+		#redistributor-regions = <0x01>;
+		compatible = "arm,gic-v3";
+		ranges;
+		#size-cells = <0x02>;
+		#address-cells = <0x02>;
+		interrupt-controller;
+		#interrupt-cells = <0x03>;
+	};
+
+	timer {
+		interrupts = <0x1 0xd 0xf04 0x1 0xe 0xf04 0x1 0xb 0xf04 0x1 0xa 0xf04>;
+		always-on;
+		compatible = "arm,armv8-timer", "arm,armv7-timer";
+	};
+
+	pl011@1c0a0000 {
+		clock-names = "uartclk", "apb_pclk";
+		clocks = <0x8000 0x8000>;
+		interrupts = <0x0 0x6 0x4>;
+		reg = <0x0 0x1c0a0000 0x0 0x1000>;
+		compatible = "arm,pl011", "arm,primecell";
+	};
+
+	apb-pclk {
+		phandle = <0x8000>;
+		clock-output-names = "clk24mhz";
+		clock-frequency = <0x16e3600>;
+		#clock-cells = <0x0>;
+		compatible = "fixed-clock";
+	};
+
+	chosen {
+        bootargs = "earlycon console=ttyAMA0,115200n8 carrier_timeout=0";
+	    stdout-path = "/pl011@1c090000";
+	};
+};
+```
+
+```
+/dts-v1/;
+
+/ {
+	#size-cells = <0x2>;
+	#address-cells = <0x2>;
+	interrupt-parent = <&gic>;
+
+	cpus {
+		#size-cells = <0x0>;
+		#address-cells = <0x1>;
+
+		cpu@0 {
+			compatible = "arm,cortex-a53", "arm,armv8";
+			device_type = "cpu";
+			enable-method = "psci";
+			reg = <0x0>;
+		};
+
+		cpu@1 {
+			compatible = "arm,cortex-a53", "arm,armv8";
+			device_type = "cpu";
+			enable-method = "psci";
+			reg = <0x1>;
+		};
+	};
+
+	psci {
+		compatible = "arm,psci-0.2";
+		method = "smc";
+	};
+
+	memory@e0000000 {
+		reg = <0x0 0xe0000000 0x0 0x40000000>;
+		device_type = "memory";
+	};
+
+	gic: intc@2F000000 {
+		interrupts = <0x01 0x09 0x04>;
+		reg = <0x00 0x2F000000 0x00 0x10000 0x00 0x2F100000 0x00 0xf60000>;
+		#redistributor-regions = <0x01>;
+		compatible = "arm,gic-v3";
+		ranges;
+		#size-cells = <0x02>;
+		#address-cells = <0x02>;
+		interrupt-controller;
+		#interrupt-cells = <0x03>;
+	};
+
+	timer {
+		interrupts = <0x1 0xd 0xf04 0x1 0xe 0xf04 0x1 0xb 0xf04 0x1 0xa 0xf04>;
+		always-on;
+		compatible = "arm,armv8-timer", "arm,armv7-timer";
+	};
+
+	pl011@1c0b0000 {
+		clock-names = "uartclk", "apb_pclk";
+		clocks = <0x8000 0x8000>;
+		interrupts = <0x0 0x7 0x4>;
+		reg = <0x0 0x1c0b0000 0x0 0x1000>;
+		compatible = "arm,pl011", "arm,primecell";
+	};
+
+	apb-pclk {
+		phandle = <0x8000>;
+		clock-output-names = "clk24mhz";
+		clock-frequency = <0x16e3600>;
+		#clock-cells = <0x0>;
+		compatible = "fixed-clock";
+	};
+
+	chosen {
+        bootargs = "earlycon console=ttyAMA0,115200n8 carrier_timeout=0";
+	    stdout-path = "/pl011@1c090000";
+	};
+};
+```
+
+## Clone Linux v6.1
+
+```bash
+export LINUX_CFG_FRAG=$WORKDIR/bao-demos/guests/linux/configs/base.config
+git clone --depth 1 -b v6.1 https://github.com/torvalds/linux.git
+```
+
+The LINUX_CFG_FRAG environment variable stores the path to our modified base.config file, which will be used during the Buildroot build process.
+
+## Build Buildroot 2022.11
+
+```bash
+git clone --depth 1 -b 2022.11 https://github.com/buildroot/buildroot.git
+make ARCH=aarch64 -C buildroot defconfig BR2_DEFCONFIG=$WORKDIR/bao-demos/guests/linux/buildroot/aarch64.config
+```
+
+When building manually, update the "BR2_LINUX_KERNEL_CUSTOM_VERSION_VALUE" in buildroot/.config to match the required Linux kernel version (6.1 in this case).
+
+After making these changes, run the following commands to build:
+
+```bash
+make -C buildroot linux-reconfigure all
+cp buildroot/output/images/*Image $WORKDIR/outputs/Image-fvp-a
+```
+
+## Build the device tree and wrap it with the kernel image
+
+```bash
+# VM 1
+dtc $WORKDIR/outputs/linux1.dts > $WORKDIR/outputs/linux1.dtb
+make -C $WORKDIR/bao-demos/guests/linux/lloader ARCH=aarch64 IMAGE=$WORKDIR/outputs/Image-fvp-a DTB=$WORKDIR/outputs/linux1.dtb TARGET=$WORKDIR/outputs/linux1
+
+# VM 2
+dtc $WORKDIR/outputs/linux2.dts > $WORKDIR/outputs/linux2.dtb
+make -C $WORKDIR/bao-demos/guests/linux/lloader ARCH=aarch64 IMAGE=$WORKDIR/outputs/Image-fvp-a DTB=$WORKDIR/outputs/linux2.dtb TARGET=$WORKDIR/outputs/linux2
+```
+
+## Build Bao
+
+```bash
+git clone -b demo https://github.com/bao-project/bao-hypervisor.git
+```
+
+The default Bao Hypervisor supports up to 2GB of memory. We'll modify it to support 4GB to allocate 1GB to each Linux VM. Apply the following patch:
+
+```diff
+diff --git a/src/platform/fvp-a/fvpa_desc.c b/src/platform/fvp-a/fvpa_desc.c
+index 7cad46a..0cd091b 100644
+--- a/src/platform/fvp-a/fvpa_desc.c
++++ b/src/platform/fvp-a/fvpa_desc.c
+@@ -11,9 +11,9 @@ struct platform platform = {
+     .region_num = 1,
+     .regions =  (struct mem_region[]) {
+         {
+-            // DRAM, 0GB-2GB
++            // DRAM, 0GB-4GB
+             .base = 0x80000000,
+-            .size = 0x80000000
++            .size = 0x100000000
+         }
+     },
+```
+
+Create a VM configuration file at "$WORKDIR/outputs/configs/linux+linux.c" with the following content:
+
+```c
+#include <config.h>
+
+VM_IMAGE(linux1_image, XSTR(BAO_DEMOS_WRKDIR_IMGS/linux1.bin));
+VM_IMAGE(linux2_image, XSTR(BAO_DEMOS_WRKDIR_IMGS/linux2.bin));
+
+struct config config = {
+    .vmlist_size = 2,
+    .vmlist = {
+        { 
+            .image = {
+                .base_addr = 0xa0000000,
+                .load_addr = VM_IMAGE_OFFSET(linux1_image),
+                .size = VM_IMAGE_SIZE(linux1_image),
+            },
+
+            .entry = 0xa0000000,
+
+            .platform = {
+                .cpu_num = 2,
+                
+                .region_num = 1,
+                .regions =  (struct vm_mem_region[]) {
+                    {
+                        .base = 0xa0000000,
+                        .size = 0x40000000,
+                        .place_phys = true,
+                        .phys = 0xa0000000,
+                    }
+                },
+
+                .dev_num = 2,
+                .devs =  (struct vm_dev_region[]) {
+                    {   
+                        /* UART1, PL011 */
+                        .pa = 0x1c0a0000,
+                        .va = 0x1c0a0000,
+                        .size = 0x10000,
+                        .interrupt_num = 1,
+                        .interrupts = (irqid_t[]) {38} 
+                    },
+                    {   
+                        .interrupt_num = 1,
+                        .interrupts = (irqid_t[]) {27} 
+                    }
+                },
+
+                .arch = {
+                    .gic = {
+                        .gicd_addr = 0x2F000000,
+                        .gicr_addr = 0x2F100000,
+                    }
+                }
+            },
+        },
+        { 
+            .image = {
+                .base_addr = 0xe0000000,
+                .load_addr = VM_IMAGE_OFFSET(linux2_image),
+                .size = VM_IMAGE_SIZE(linux2_image),
+            },
+
+            .entry = 0xe0000000,
+
+            .platform = {
+                .cpu_num = 2,
+                
+                .region_num = 1,
+                .regions =  (struct vm_mem_region[]) {
+                    {
+                        .base = 0xe0000000,
+                        .size = 0x40000000,
+                        .place_phys = true,
+                        .phys = 0xe0000000,
+                    }
+                },
+
+                .dev_num = 2,
+                .devs =  (struct vm_dev_region[]) {
+                    {   
+                        /* UART2, PL011 */
+                        .pa = 0x1c0b0000,
+                        .va = 0x1c0b0000,
+                        .size = 0x10000,
+                        .interrupt_num = 1,
+                        .interrupts = (irqid_t[]) {39} 
+                    },
+                    {   
+                        .interrupt_num = 1,
+                        .interrupts = (irqid_t[]) {27} 
+                    }
+                },
+
+                .arch = {
+                    .gic = {
+                        .gicd_addr = 0x2F000000,
+                        .gicr_addr = 0x2F100000,
+                    },
+                },
+            },
+        },
+    },
+};
+```
+
+After applying these changes, build the hypervisor:
+
+```bash
+make -C bao-hypervisor \
+        PLATFORM=fvp-a \
+        CONFIG_REPO=$WORKDIR/outputs/config \
+        CONFIG=linux+linux \
+        CPPFLAGS=-DBAO_DEMOS_WRKDIR_IMGS=$WORKDIR/outputs
+        
+cp $WORKDIR/bao-hypervisor/bin/fvp-a/linux+linux/bao.bin $WORKDIR/resources/semihosting/bao.bin
+```
+
+## Build U-boot
+
+```bash
+git clone --depth 1 -b v2022.10 https://github.com/u-boot/u-boot.git
+make -C u-boot vexpress_aemv8a_semi_defconfig
+make -C u-boot -j $(nproc)
+cp u-boot/u-boot.bin $WORKDIR/outputs/
+```
+
+## Build Trusted Firmware-A
+
+```bash
+git clone --depth 1 -b v2.9 https://github.com/ARM-software/arm-trusted-firmware.git
+make -C arm-trusted-firmware PLAT=fvp bl1 fip ARCH=aarch64 BL33=$WORKDIR/outputs/u-boot.bin
+
+cp $WORKDIR/arm-trusted-firmware/build/fvp/release/fip.bin $WORKDIR/resources/binaries/fip.bin
+cp $WORKDIR/arm-trusted-firmware/build/fvp/release/bl1.bin $WORKDIR/resources/binaries/bl1.bin
+```
+
+## Run and Connect to the Simulation
+
+Verify that your resources directory has the following structure:
+
+```
+resources
+    binaries
+        bl1.bin
+        fip.bin
+    semihosting
+        bao.bin
+```
+
+Start the simulation:
+
+```bash
+export M5_PATH=resources/ && \
+	gem5/build/ARM/gem5.opt gem5/configs/example/arm/baremetal.py \
+	   --workload ArmTrustedFirmware \
+	   --num-cores 4 \
+	   --mem-size 4GB \
+	   --machine-type VExpress_GEM5_Foundation \
+	   --semi-enable --semi-path resources/semihosting
+```
+
+Connect to the simulation:
+
+```bash
+gem5/util/term/m5term 3456 # Bao Hypervisor
+gem5/util/term/m5term 3457 # VM 1 (Linux)
+gem5/util/term/m5term 3458 # VM 2 (Linux)
+```
+
+Monitor the boot process through the terminals. When U-Boot starts, press any key to interrupt the auto-boot process. Then, load and run the Bao binary using semihosting with these commands:
+
+```bash
+load hostfs - 0x90000000 bao.bin
+go 0x90000000
+```
+
+Once the system is up, you can access the Linux shells on ports 3457 and 3458. Log in using "root" as both username and password.
